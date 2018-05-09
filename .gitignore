@@ -1,5 +1,6 @@
 /**/*.asc
 /**/*.crt
+/**/*.key
 /**/c
 /**/config.properties
 # Compiled class file
