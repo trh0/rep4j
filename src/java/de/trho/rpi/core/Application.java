@@ -29,7 +29,7 @@ public class Application implements CoreController {
 
   private final ExecutorService                 execInput;
   ScheduledExecutorService                      execModule;
-  private final Deque<AppModule>                repeat, loop, startOnce;
+  private final Deque<AppModule>                repeat, startOnce;
 
   private final PacketGateway                   com;
 
@@ -39,8 +39,6 @@ public class Application implements CoreController {
     this.execModule = Executors.newScheduledThreadPool(2);
     this.startOnce = new LinkedBlockingDeque<>();
     this.repeat = new LinkedBlockingDeque<>();
-    this.loop = new LinkedBlockingDeque<>();
-
     this.com = Lookup.find(PacketGateway.class);
 
     setup();
@@ -86,7 +84,6 @@ public class Application implements CoreController {
 
   @Override
   public void removeModule(AppModule m) {
-    this.loop.remove(m);
     this.startOnce.remove(m);
     this.repeat.remove(m);
     m.getFuture().cancel(true);
@@ -98,7 +95,6 @@ public class Application implements CoreController {
       logger.debug("Executing shutdown-hook");
       execInput.shutdownNow();
       execModule.shutdownNow();
-      this.loop.forEach(AppModule::exit);
       this.repeat.forEach(AppModule::exit);
       this.startOnce.forEach(AppModule::exit);
     }));
