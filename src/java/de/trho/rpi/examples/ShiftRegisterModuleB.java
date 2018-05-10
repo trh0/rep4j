@@ -2,6 +2,7 @@ package de.trho.rpi.examples;
 
 import static com.pi4j.wiringpi.Gpio.*;
 import java.util.Random;
+import java.util.regex.Pattern;
 import com.pi4j.io.gpio.PinState;
 import com.pi4j.wiringpi.Shift;
 import de.trho.rpi.core.AbstractAppModule;
@@ -11,9 +12,10 @@ import de.trho.rpi.core.RPi3Pin;
 @SuppressWarnings("unused")
 public class ShiftRegisterModuleB extends AbstractAppModule implements KeyInputListener {
 
-  private final byte   data, latch, clock, reset;
+  private final byte       data, latch, clock, reset;
 
-  private volatile int wait;
+  private volatile int     wait, g, totalShifted, lsb = Shift.LSBFIRST, mode = 0;
+  private volatile boolean hold;
 
   public ShiftRegisterModuleB(int wait, int data, int latch, int clock, int reset) {
     super(RunMode.LOOP);
@@ -34,41 +36,47 @@ public class ShiftRegisterModuleB extends AbstractAppModule implements KeyInputL
     digitalWrite(reset, HIGH);
   }
 
-  private static final int[] VALS = {0x01, 0x02, 0x04, 0x08, 0x0F, 0x20, 0x40, 0x80, 0xFF};
+  private static final int[] GUESSES = {0b10000000, 0b10100000, 0b00001000, 0b00001100, 0b11001100,
+      0b00110011, 0b00110000, 0b00001111};
 
   @Override
   public void run() {
     this.setRunning(true);
+    getController().subscribeInput(this);
     while (this.isRunning()) {
-      byte x = 0x01;
-      for (byte i = Byte.MIN_VALUE; i < Byte.MAX_VALUE; i++) {
-        try {
-          digitalWrite(latch, LOW);
-          Shift.shiftOut(data, clock, (byte) 1, x);
-          digitalWrite(latch, HIGH);
-          Thread.sleep(wait);
-          logger.info("Shifting {} {} {}", x, Integer.toBinaryString(x), Integer.toHexString(x));
-        } catch (InterruptedException e) {
-          super.logger.error(e);
+      try {
+        while (hold) {
+          Thread.sleep(1000);
         }
-      }
-      digitalWrite(reset, LOW);
-      delay(50);
-      digitalWrite(reset, HIGH);
-      for (byte i = Byte.MIN_VALUE; i < Byte.MAX_VALUE; i++) {
-        try {
-          digitalWrite(latch, LOW);
-          x = i;
-          Shift.shiftOut(data, clock, (byte) 1, i);
-          digitalWrite(latch, HIGH);
-          Thread.sleep(wait);
-          logger.info("Shifting {} {} {}", x, Integer.toBinaryString(x), Integer.toHexString(x));
-        } catch (InterruptedException e) {
-          super.logger.error(e);
+        if (mode == 0) {
+          shiftModeA();
+        } else {
+          shiftModeB();
         }
+      } catch (InterruptedException e) {
+        super.logger.error(e);
       }
     }
     this.setRunning(false);
+  }
+
+  private void shiftModeB() {
+    hold = true;
+    logger.info("jbyte({} dual:{} hex:{}) total: {}", g, Integer.toBinaryString(g),
+        Integer.toHexString(g), Integer.toBinaryString(g), Integer.toHexString(totalShifted));
+    write(g);
+  }
+
+  private void shiftModeA() {
+    byte x;
+    hold = true;
+    x = (byte) g;
+    digitalWrite(latch, LOW);
+    Shift.shiftOut(data, clock, (byte) 0, x);
+    digitalWrite(latch, HIGH);
+    logger.info("jbyte({}/{} dual:{} hex:{}) total: {}/{}", x, g, Integer.toBinaryString(x),
+        Integer.toHexString(x), Integer.toBinaryString(totalShifted),
+        Integer.toHexString(totalShifted));
   }
 
   @Override
@@ -121,14 +129,62 @@ public class ShiftRegisterModuleB extends AbstractAppModule implements KeyInputL
 
   private void write(int val) {
     // write each bit of val to register
-    for (int i = 0; i < 8; i++) {
-      shift(((val >> i) & 1) == 1);
+    String bits = "";
+    if (lsb == Shift.LSBFIRST) {
+      for (int i = 0; i < 16; ++i) {
+        shift(((val >> i) & 1) == 1);
+        bits += ((val >> i) & 1) == 1 ? 1 : 0;
+      } /*  */
+    } else {
+      for (int i = 15; i >= 0; --i) {
+        shift(((val >> i) & 1) == 1);
+        bits += ((val >> i) & 1) == 1 ? 1 : 0;
+      }
     }
+    logger.debug("Wrote {}", bits);
     // and latch it (i.e. output it)
     latch();
   }
+  private volatile String now = "b";
 
   @Override
-  public void notifyInput(byte[] input) {}
-
+  public void notifyInput(final byte[] input) {
+    now = new String(input);
+    if (Pattern.matches("nulls", now)) {
+      write(0);
+    } else if (Pattern.matches("mode.a(.+)?", now)) {
+      logger.info("Shift Mode: A");
+      mode = 0;
+    } else if (Pattern.matches("mode.b(.+)?", now)) {
+      logger.info("Shift Mode: B");
+      mode = 1;
+    } else if (Pattern.matches("lsb(.+)?", now)) {
+      logger.info("LSB FIRST");
+      lsb = Shift.LSBFIRST;
+    } else if (Pattern.matches("msb(.+)?", now)) {
+      logger.info("MSB FIRST");
+      lsb = Shift.MSBFIRST;
+    } else if (Pattern.matches("clear(.+)?", now)) {
+      logger.info("Clearing...");
+      totalShifted = 0;
+      digitalWrite(reset, LOW);
+      delay(500);
+      digitalWrite(reset, HIGH);
+    }
+    if (Pattern.matches("^[01]{16}(.+)?", now)) {
+      hold = false;
+      g = Integer.parseInt(now.substring(0, 8), 2);
+      totalShifted += g;
+    } else if (Pattern.matches("^0x[0-9ABCEDF]{4}(.+)?", now)) {
+      hold = false;
+      g = Integer.parseInt(now.substring(2, 6), 16);
+      totalShifted += g;
+    } else {
+      hold = true;
+    }
+    now = "";
+  }
+  // 11111111
+  // 00000000
+  // 10101010
 }

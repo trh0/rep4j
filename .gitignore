@@ -5,7 +5,7 @@
 /**/config.properties
 # Compiled class file
 *.class
-
+/**/git_old
 /**/target
 .settings
 

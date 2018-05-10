@@ -25,8 +25,8 @@ public class Launch {
     Application app;
     AppModule module;
     app = new Application();
-    module = new ShiftRegisterModuleB(500, RPi3Pin.GPIO_17.address(), RPi3Pin.GPIO_27.address(),
-        RPi3Pin.GPIO_22.address(), RPi3Pin.GPIO_05.address());
+    module = new ShiftRegisterModuleB(50, RPi3Pin.GPIO_17.address(), RPi3Pin.GPIO_27.address(),
+        RPi3Pin.GPIO_22.address(), RPi3Pin.GPIO_06.address());
     app.addModule(module);
   }
 
