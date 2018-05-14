@@ -5,241 +5,341 @@ import java.util.List;
 
 /**
  * 
- * @author trh0 Put <a href="http://reprap.org/wiki/G-code">this information</a> in here
+ * @author trh0
+ * @see <a href="http://reprap.org/wiki/G-code">this information about GCode for 3d printers</a>  
+ *         
  */
 public class GCode {
+   /**
+    * A GCode parser capable of processing single or multiple likes. 
+    *
+    */
+   public static class Parser {
+      /**
+       * 
+       * @param line The line to parse
+       * @return The parsed Cmd
+       */
+      public Cmd parse(String line) {
 
-  public static class Parser {
+         final Cmd cmd;
+         line = line.trim().replaceAll("(\\ +)?\\;.+", "");
+         if (line.isEmpty()) {
+            return Cmd.NIL;
+         }
 
-    public Cmd parse(String line) {
-
-      final Cmd cmd;
-      line = line.trim().replaceAll("(\\ +)?\\;.+", "");
-      if (line.isEmpty()) {
-        return Cmd.nil;
+         int len;
+         String[] split;
+         split = line.split("\\ ");
+         len = split.length;
+         if (len > 0) {
+            String token = split[0];
+            char c = token.charAt(0);
+            if (c == 'M' || c == 'm' || c == 'G' || c == 'g') {
+               cmd = Command.find(token);
+            } else {
+               cmd = null;
+            }
+            if (cmd == null)
+               return Cmd.NIL;
+            for (int i = 1; i < len; i++) {
+               token = split[i];
+               final Variable v = Var.find(token.charAt(0) + "");
+               if (v == null)
+                  continue;
+               try {
+                  v.setValue(Double.parseDouble(token.substring(1)));
+               } catch (Exception e) {
+               }
+               cmd.addVar(v);
+            }
+         } else
+            return Cmd.NIL;
+         return cmd;
       }
-
-      int len;
-      String[] split;
-      split = line.split("\\ ");
-      len = split.length;
-      if (len > 0) {
-        String token = split[0];
-        char c = token.charAt(0);
-        if (c == 'M' || c == 'm') {
-          cmd = Cmd.M.find(token);
-        } else if (c == 'G' || c == 'g') {
-          cmd = Cmd.G.find(token);
-        } else {
-          cmd = null;
-        }
-        if (cmd == null)
-          return Cmd.nil;
-        for (int i = 1; i < len; i++) {
-          token = split[i];
-          final Variable v = Variable.Var.find(token.charAt(0) + "");
-          if (v == null)
-            continue;
-          try {
-            v.setValue(Double.parseDouble(token.substring(1)));
-          } catch (Exception e) {
-          }
-          cmd.addVar(v);
-        }
-      } else
-        return Cmd.nil;
-      return cmd;
-    }
-
-    public List<Cmd> parse(List<String> lines) {
-      final List<Cmd> cmds = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
-      for (String ln : lines) {
-        Cmd cmd = parse(ln);
-        if (Cmd.nil.equals(cmd))
-          continue;
-        cmds.add(cmd);
+      /**
+       * 
+       * @param lines The lines to parse
+       * @return A list of all Cmd's found.
+       */
+      public List<Cmd> parse(List<String> lines) {
+         final List<Cmd> cmds = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+         for (String ln : lines) {
+            Cmd cmd = parse(ln);
+            if (Cmd.NIL.equals(cmd))
+               continue;
+            cmds.add(cmd);
+         }
+         return cmds;
       }
-      return cmds;
-    }
-  }
+   }
 
-  /**
-  * 
-  */
-  public static enum Axis {
+   /**
+   * 
+   */
+   public static enum Axis {
     //@formatter:off
       ALL, C1, C2, C3, E, X, Y, Z
     //@formatter:on
-  }
-  public interface Variable {
+   }
+   /**
+    * Represents a GCode variable but can as well be something like G1.
+    *
+    */
+   public interface Variable {
 
-    Number getValue();
+      Number getValue();
 
-    boolean clean();
+      boolean clean();
 
-    String getName();
+      String getName();
 
-    void setValue(Number value);
+      void setValue(Number value);
 
-    public enum Var {
-      //@formatter:off
-        /**
-         * Absolute or incremental position of A axis (rotational axis around X axis)
-         */
-        A(),
-        /**
-         * Absolute or incremental position of B axis (rotational axis around Y axis)
-         */
-        B(),
-        /**
-         * Absolute or incremental position of C axis (rotational axis around Z axis)
-         */
-        C(),
-        /**
-         * Defines diameter or radial offset used for cutter compensation. D is used for depth of cut on lathes. It is used for aperture selection and commands on photoplotters.
-         */
-        D(),
-        /**
-         * Precision feedrate for threading on lathes
-         */
-        E(),
-        /**
-         * Defines feed rate
-         */
-        F(),
-        /**
-         * Address for preparatory commands
-         */
-        G(),
-        H(),
-        /**
-         * Defines arc center in X axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.
-         */
-        I(),
-        /**
-         * Defines arc center in Y axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.
-         */
-        J(),
-        /**
-         * Defines arc center in Z axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles, equal to L address.
-         */
-        K(),
-        /**
-         * Fixed cycle loop count; Specification of what register to edit using G10
-         */
-        L(),
-        /**
-         * Miscellaneous function.
-         */
-        M(),
-        /**
-         * Line (block) number in program; System parameter number to change using G10
-         */
-        N(),
-        /**
-         * Program name
-         */
-        O(),
-        /**
-         * Serves as parameter address for various G and M codes
-         */
-        P(),
-        /**
-         * Defines size of arc radius, or defines retract height in milling canned cycles
-         */
-        R(),
-        /**
-         * Defines speed, either spindle speed or surface speed depending on mode
-         */
-        S(),
-        /**
-         * Tool selection
-         */
-        T(),
-        /**
-         * Incremental axis corresponding to X axis (typically only lathe group A controls). Also defines dwell time on some machines (instead of "P" or "X").
-         */
-        U(),
-        /**
-         * Incremental axis corresponding to Y axis
-         */
-        V(),
-        /**
-         * Incremental axis corresponding to Z axis (typically only lathe group A controls)
-         */
-        W(),
-        /**
-         * Absolute or incremental position of X axis. Also defines dwell time on some machines (instead of "P" or "U").
-         */
-        X(),
-        /**
-         * Absolute or incremental position of Y axis
-         */
-        Y(),
-        /**
-         * Absolute or incremental position of Z axis
-         */
-        Z();
-      public static Variable find(String s) {
-        return new Variable() {
-          private Number  value;
-          private boolean clean = true;
-          private final String name = Var.valueOf(s).name();
-          @Override
-          public void setValue(Number value) {
-            this.value = value;
-          }
-          @Override
-          public boolean clean() {
-            return this.clean;
-          }
+      public static final Variable NIL = new Variable() {
 
-          @Override
-          public String toString() {
-            return "var:{name:" + this.getName() + ", value:" + this.value + "}";
-          }
+         @Override
+         public Number getValue() {
+            return 0;
+         }
 
-          @Override
-          public Number getValue() {
-            return value;
-          }
+         @Override
+         public boolean clean() {
+            return false;
+         }
 
-          @Override
-          public String getName() {
-            return name;
-          }
+         @Override
+         public String getName() {
+            return "NULL";
+         }
+
+         @Override
+         public void setValue(Number value) {
+
+         }
       };
-    }
-    //@formatter:on
-    }
 
-  }
+   }
+   /**
+    * Represents a line of GCode -> a command
+    *
+    */
+   public static interface Cmd {
 
-  public interface Cmd {
+      Command getCommand();
 
-    String name();
+      List<Variable> getVars();
 
-    List<Variable> getVars();
+      void addVar(Variable var);
 
-    void addVar(Variable var);
+      public static final Cmd NIL = new Cmd() {
+         @Override
+         public Command getCommand() {
+            return Command.Nil;
+         }
 
-    public static final Cmd nil = new Cmd() {
-      @Override
-      public String name() {
-        return "null";
+         @Override
+         public List<Variable> getVars() {
+            return null;
+         }
+
+         @Override
+         public void addVar(Variable var) {}
+      };
+
+   }
+   /**
+    * 
+    *
+    */
+   public static interface Handler {
+      /**
+       * The implementation <b>MUST BE</b> a blocking call.
+       * 
+       * @param command The command to handle
+       */
+      void handle(Cmd command);
+   }
+   /**
+    * 
+    *
+    */
+   public static interface Processor {
+      /**
+       * 
+       * @param c The command the given handler can handle
+       * @param h The handler that should be called whenever a command of type c is read.
+       */
+      void setHandler(Command c, Handler h);
+
+      /**
+       * 
+       * @param gcode The GCode to process
+       */
+      void setGCode(String gcode);
+
+      /**
+       * 
+       * @return The current line being processed / noLines.
+       */
+      double getProgress();
+      /**
+       * Start processing the GCode set before.
+       */
+      void process();
+   }
+   /**
+    * 
+    * All key-chars / variables that can occur in GCode
+    *
+    */
+   public static enum Var {
+     //@formatter:off
+       /**
+        * Absolute or incremental position of A axis (rotational axis around X axis)
+        */
+       A(),
+       /**
+        * Absolute or incremental position of B axis (rotational axis around Y axis)
+        */
+       B(),
+       /**
+        * Absolute or incremental position of C axis (rotational axis around Z axis)
+        */
+       C(),
+       /**
+        * Defines diameter or radial offset used for cutter compensation. D is used for depth of cut on lathes. It is used for aperture selection and commands on photoplotters.
+        */
+       D(),
+       /**
+        * Precision feedrate for threading on lathes
+        */
+       E(),
+       /**
+        * Defines feed rate
+        */
+       F(),
+       /**
+        * Address for preparatory commands
+        */
+       G(),
+       H(),
+       /**
+        * Defines arc center in X axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.
+        */
+       I(),
+       /**
+        * Defines arc center in Y axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.
+        */
+       J(),
+       /**
+        * Defines arc center in Z axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles, equal to L address.
+        */
+       K(),
+       /**
+        * Fixed cycle loop count; Specification of what register to edit using G10
+        */
+       L(),
+       /**
+        * Miscellaneous function.
+        */
+       M(),
+       /**
+        * Line (block) number in program; System parameter number to change using G10
+        */
+       N(),
+       /**
+        * Program name
+        */
+       O(),
+       /**
+        * Serves as parameter address for various G and M codes
+        */
+       P(),
+       /**
+        * Defines size of arc radius, or defines retract height in milling canned cycles
+        */
+       R(),
+       /**
+        * Defines speed, either spindle speed or surface speed depending on mode
+        */
+       S(),
+       /**
+        * Tool selection
+        */
+       T(),
+       /**
+        * Incremental axis corresponding to X axis (typically only lathe group A controls). Also defines dwell time on some machines (instead of "P" or "X").
+        */
+       U(),
+       /**
+        * Incremental axis corresponding to Y axis
+        */
+       V(),
+       /**
+        * Incremental axis corresponding to Z axis (typically only lathe group A controls)
+        */
+       W(),
+       /**
+        * Absolute or incremental position of X axis. Also defines dwell time on some machines (instead of "P" or "U").
+        */
+       X(),
+       /**
+        * Absolute or incremental position of Y axis
+        */
+       Y(),
+       /**
+        * Absolute or incremental position of Z axis
+        */
+       Z();
+      /**
+       * Somehow a factory method.
+       * @param s The char / String to lookup a Var for
+       * @return A fully functional Variable with a setable value attached.
+       */
+     public static Variable find(String s) {
+        try {
+           return new Variable() {
+              private Number  value;
+              private boolean clean = true;
+              private final String name = Var.valueOf(s).name();
+              @Override
+              public void setValue(Number value) {
+                this.value = value;
+              }
+              @Override
+              public boolean clean() {
+                return this.clean;
+              }
+
+              @Override
+              public String toString() {
+                return "var:{name:" + this.getName() + ", value:" + this.value + "}";
+              }
+
+              @Override
+              public Number getValue() {
+                return value;
+              }
+
+              @Override
+              public String getName() {
+                return name;
+              }
+          };  
+      } catch (Exception e) {
+         return Variable.NIL;
       }
-
-      @Override
-      public List<Variable> getVars() {
-        return null;
-      }
-
-      @Override
-      public void addVar(Variable var) {}
-    };
-
-    public enum G {
-      G0(), // Move
+       
+   }
+   //@formatter:on
+   }
+   /**
+    * All important commands that can occur in GCode.
+    *
+    */
+   public static enum Command {
+      Nil(), G0(), // Move
       G1(), // Move
       G2(), // Controlled Arc Move
       G3(), // Controlled Arc Move
@@ -294,38 +394,7 @@ public class GCode {
       G132(), // Calibrate endstop offsets
       G133(), // Measure steps to top
       G161(), // Home axes to minimum
-      G162();
-
-      public static Cmd find(String s) {
-        return new Cmd() {
-          private final List<Variable> vars = new java.util.ArrayList<>();
-          private final String         name = G.valueOf(s).name();
-
-          @Override
-          public String name() {
-            return name;
-          }
-
-          @Override
-          public List<Variable> getVars() {
-            return vars;
-          }
-
-          @Override
-          public void addVar(Variable var) {
-            this.vars.add(var);
-          }
-
-          @Override
-          public String toString() {
-            return "cmd: {name: " + this.name() + " , vars: [" + Arrays.toString(vars.toArray())
-                + "]}";
-          }
-        };
-      }
-    }
-    public enum M {
-      M0(), // Stop or Unconditional stop
+      G162(), M0(), // Stop or Unconditional stop
       M1(), // Sleep or Conditional stop
       M2(), // Program End
       M3(), // Spindle On, Clockwise (CNC specific)
@@ -613,37 +682,43 @@ public class GCode {
       M997(), // Perform in-application firmware update
       M998(), // Request resend of line
       M999();// Restart after being stopped by error
+      /**
+       * Somehow a factory method.
+       * 
+       * @param s The string to find a command for.
+       * @return A fully functional Cmd impl ready to add vars to.
+       */
+      public static GCode.Cmd find(String s) {
+         try {
+            return new GCode.Cmd() {
+               private final List<GCode.Variable> vars = new java.util.ArrayList<>();
+               private final Command              cmd  = Command.valueOf(s);
 
-      public static Cmd find(String s) {
-        return new Cmd() {
-          private final List<Variable> vars = new java.util.ArrayList<>();
-          private final String         name = M.valueOf(s).name();
+               @Override
+               public Command getCommand() {
+                  return cmd;
+               }
 
-          @Override
-          public String name() {
-            return name;
-          }
+               @Override
+               public List<GCode.Variable> getVars() {
+                  return vars;
+               }
 
-          @Override
-          public List<Variable> getVars() {
-            return vars;
-          }
+               @Override
+               public void addVar(GCode.Variable var) {
+                  this.vars.add(var);
+               }
 
-          @Override
-          public void addVar(Variable var) {
-            this.vars.add(var);
-          }
+               @Override
+               public String toString() {
+                  return "cmd: {name: " + this.getCommand().name() + " , vars: ["
+                        + Arrays.toString(vars.toArray()) + "]}";
+               }
+            };
 
-          @Override
-          public String toString() {
-            return "cmd: {name: " + this.name() + " , vars: [" + Arrays.toString(vars.toArray())
-                + "]}";
-          }
-        };
+         } catch (Exception e) {
+            return Cmd.NIL;
+         }
       }
-
-    }
-
-  }
-
+   }
 }
