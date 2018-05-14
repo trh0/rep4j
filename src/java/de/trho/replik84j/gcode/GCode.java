@@ -1,692 +1,649 @@
 package de.trho.replik84j.gcode;
 
-import static java.lang.Math.abs;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * 
- * @author trh0
- * Put <a href="http://reprap.org/wiki/G-code">this information</a> in here
+ * @author trh0 Put <a href="http://reprap.org/wiki/G-code">this information</a> in here
  */
 public class GCode {
 
-   /**
-   * 
-   */
-   public static enum Axis {
+  public static class Parser {
+
+    public Cmd parse(String line) {
+
+      final Cmd cmd;
+      line = line.trim().replaceAll("(\\ +)?\\;.+", "");
+      if (line.isEmpty()) {
+        return Cmd.nil;
+      }
+
+      int len;
+      String[] split;
+      split = line.split("\\ ");
+      len = split.length;
+      if (len > 0) {
+        String token = split[0];
+        char c = token.charAt(0);
+        if (c == 'M' || c == 'm') {
+          cmd = Cmd.M.find(token);
+        } else if (c == 'G' || c == 'g') {
+          cmd = Cmd.G.find(token);
+        } else {
+          cmd = null;
+        }
+        if (cmd == null)
+          return Cmd.nil;
+        for (int i = 1; i < len; i++) {
+          token = split[i];
+          final Variable v = Variable.Var.find(token.charAt(0) + "");
+          if (v == null)
+            continue;
+          try {
+            v.setValue(Double.parseDouble(token.substring(1)));
+          } catch (Exception e) {
+          }
+          cmd.addVar(v);
+        }
+      } else
+        return Cmd.nil;
+      return cmd;
+    }
+
+    public List<Cmd> parse(List<String> lines) {
+      final List<Cmd> cmds = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+      for (String ln : lines) {
+        Cmd cmd = parse(ln);
+        if (Cmd.nil.equals(cmd))
+          continue;
+        cmds.add(cmd);
+      }
+      return cmds;
+    }
+  }
+
+  /**
+  * 
+  */
+  public static enum Axis {
     //@formatter:off
       ALL, C1, C2, C3, E, X, Y, Z
     //@formatter:on
-   }
+  }
+  public interface Variable {
 
-   public static enum Var {
-    //@formatter:off
-      /**
-       * Absolute or incremental position of A axis (rotational axis around X axis)
-       */
-      A(),
-      /**
-       * Absolute or incremental position of B axis (rotational axis around Y axis)
-       */
-      B(),
-      /**
-       * Absolute or incremental position of C axis (rotational axis around Z axis)
-       */
-      C(),
-      /**
-       * Defines diameter or radial offset used for cutter compensation. D is used for depth of cut on lathes. It is used for aperture selection and commands on photoplotters.
-       */
-      D(),
-      /**
-       * Precision feedrate for threading on lathes
-       */
-      E(),
-      /**
-       * Defines feed rate
-       */
-      F(),
-      /**
-       * Address for preparatory commands
-       */
-      G(),
-      H,
-      /**
-       * Defines arc center in X axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.
-       */
-      I(),
-      /**
-       * Defines arc center in Y axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.
-       */
-      J(),
-      /**
-       * Defines arc center in Z axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles, equal to L address.
-       */
-      K(),
-      /**
-       * Fixed cycle loop count; Specification of what register to edit using G10
-       */
-      L(),
-      /**
-       * Miscellaneous function.
-       */
-      M(),
-      /**
-       * Line (block) number in program; System parameter number to change using G10
-       */
-      N(),
-      /**
-       * Program name
-       */
-      O(),
-      /**
-       * Serves as parameter address for various G and M codes
-       */
-      P(),
-      /**
-       * Defines size of arc radius, or defines retract height in milling canned cycles
-       */
-      R(),
-      /**
-       * Defines speed, either spindle speed or surface speed depending on mode
-       */
-      S(),
-      /**
-       * Tool selection
-       */
-      T(),
-      /**
-       * Incremental axis corresponding to X axis (typically only lathe group A controls). Also defines dwell time on some machines (instead of "P" or "X").
-       */
-      U(),
-      /**
-       * Incremental axis corresponding to Y axis
-       */
-      V(),
-      /**
-       * Incremental axis corresponding to Z axis (typically only lathe group A controls)
-       */
-      W(),
-      /**
-       * Absolute or incremental position of X axis. Also defines dwell time on some machines (instead of "P" or "U").
-       */
-      X(),
-      /**
-       * Absolute or incremental position of Y axis
-       */
-      Y(),
-      /**
-       * Absolute or incremental position of Z axis
-       */
-      Z();
-      private Var(String...strs) {}
+    Number getValue();
+
+    boolean clean();
+
+    String getName();
+
+    void setValue(Number value);
+
+    public enum Var {
+      //@formatter:off
+        /**
+         * Absolute or incremental position of A axis (rotational axis around X axis)
+         */
+        A(),
+        /**
+         * Absolute or incremental position of B axis (rotational axis around Y axis)
+         */
+        B(),
+        /**
+         * Absolute or incremental position of C axis (rotational axis around Z axis)
+         */
+        C(),
+        /**
+         * Defines diameter or radial offset used for cutter compensation. D is used for depth of cut on lathes. It is used for aperture selection and commands on photoplotters.
+         */
+        D(),
+        /**
+         * Precision feedrate for threading on lathes
+         */
+        E(),
+        /**
+         * Defines feed rate
+         */
+        F(),
+        /**
+         * Address for preparatory commands
+         */
+        G(),
+        H(),
+        /**
+         * Defines arc center in X axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.
+         */
+        I(),
+        /**
+         * Defines arc center in Y axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.
+         */
+        J(),
+        /**
+         * Defines arc center in Z axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles, equal to L address.
+         */
+        K(),
+        /**
+         * Fixed cycle loop count; Specification of what register to edit using G10
+         */
+        L(),
+        /**
+         * Miscellaneous function.
+         */
+        M(),
+        /**
+         * Line (block) number in program; System parameter number to change using G10
+         */
+        N(),
+        /**
+         * Program name
+         */
+        O(),
+        /**
+         * Serves as parameter address for various G and M codes
+         */
+        P(),
+        /**
+         * Defines size of arc radius, or defines retract height in milling canned cycles
+         */
+        R(),
+        /**
+         * Defines speed, either spindle speed or surface speed depending on mode
+         */
+        S(),
+        /**
+         * Tool selection
+         */
+        T(),
+        /**
+         * Incremental axis corresponding to X axis (typically only lathe group A controls). Also defines dwell time on some machines (instead of "P" or "X").
+         */
+        U(),
+        /**
+         * Incremental axis corresponding to Y axis
+         */
+        V(),
+        /**
+         * Incremental axis corresponding to Z axis (typically only lathe group A controls)
+         */
+        W(),
+        /**
+         * Absolute or incremental position of X axis. Also defines dwell time on some machines (instead of "P" or "U").
+         */
+        X(),
+        /**
+         * Absolute or incremental position of Y axis
+         */
+        Y(),
+        /**
+         * Absolute or incremental position of Z axis
+         */
+        Z();
+      public static Variable find(String s) {
+        return new Variable() {
+          private Number  value;
+          private boolean clean = true;
+          private final String name = Var.valueOf(s).name();
+          @Override
+          public void setValue(Number value) {
+            this.value = value;
+          }
+          @Override
+          public boolean clean() {
+            return this.clean;
+          }
+
+          @Override
+          public String toString() {
+            return "var:{name:" + this.getName() + ", value:" + this.value + "}";
+          }
+
+          @Override
+          public Number getValue() {
+            return value;
+          }
+
+          @Override
+          public String getName() {
+            return name;
+          }
+      };
+    }
     //@formatter:on
-   }
+    }
 
-   public static enum G {
-      /** Rapid positioning */
-      G00(),
-      /** Linear interpolation */
-      G01(),
-      /** Circular interpolation, clockwise */
-      G02(),
-      /** Circular interpolation, counterclockwise */
-      G03(),
-      /** Dwell - Pause the machine for a period of time. */
-      G04(),
-      /** P10000 High-precision contour control (HPCC) */
-      G05(),
-      /** .1 Q1.AI Advanced Preview Control */
-      G05_1(),
-      /** .1 Non-uniform rational B-spline (NURBS) Machining */
-      G06_1(),
-      /** Imaginary axis designation */
-      G07(),
-      /** Exact stop check, non-modal */
-      G09(),
-      /** Programmable data input */
-      G10(),
-      /** Data write cancel */
-      G11(),
-      /** XY plane selection */
-      G17(),
-      /** ZX plane selection */
-      G18(),
-      /** YZ plane selection */
-      G19(),
-      /** Programming in inches */
-      G20(),
-      /** Programming in millimeters (mm) */
-      G21(),
-      /** Return to home position (machine zero, aka machine reference point) */
-      G28(),
-      /** Return to secondary home position (machine zero, aka machine reference point) */
-      G30(),
-      /** Feed until skip function */
-      G31(),
-      /** Single-point threading, longhand style (if not using a cycle, e.g., G76) */
-      G32(),
-      /**
-       * Constant-pitch threading T: Single-point threading, longhand style (if not using a cycle,
-       * e.g., G76)
-       */
-      G33(),
-      /** Variable-pitch threading */
-      G34(),
-      /** Tool radius compensation off */
-      G40(),
-      /**
-       * Tool radius compensation left Milling: Given righthand-helix cutter and M03 spindle
-       * direction, G41 corresponds to climb milling (down milling).<br>
-       * Takes an address (D or H) that calls an offset register value for radius. <br>
-       * Turning: Often needs no D or H address on lathes, because whatever tool is active
-       * automatically calls its geometry offsets with it. (Each turret station is bound to its
-       * geometry offset register.)<br>
-       * G41 and G42 for milling has been partially automated and obviated (although not completely)
-       * since CAM programming has become more common. <br>
-       * CAM systems let the user program as if using a zero-diameter cutter. <br>
-       * The fundamental concept of cutter radius compensation is still in play (i.e., that the
-       * surface produced will be distance R away from the cutter center), but the programming
-       * mindset is different.<br>
-       * The human does not choreograph the toolpath with conscious, painstaking attention to G41,
-       * G42, and G40, because the CAM software takes care of that. <br>
-       * The software has various CRC mode selections, such as computer, control, wear, reverse
-       * wear, off, some of which do not use G41/G42 at all (good for roughing, or wide finish
-       * tolerances), and others that use it so that the wear offset can still be tweaked at the
-       * machine (better for tight finish tolerances).
-       */
-      G41(),
+  }
 
-      /** Tool radius compensation right */
-      G42(),
-      /** Tool height offset compensation negative */
-      G43(),
-      /** Tool height offset compensation positive */
-      G44(),
-      /** Axis offset single increase */
-      G45(),
-      /** Axis offset single decrease */
-      G46(),
-      /** Axis offset double increase */
-      G47(),
-      /** Axis offset double decrease */
-      G48(),
-      /** Tool length offset compensation cancel */
-      G49(),
-      /** Define the maximum spindle speed T:Scaling function cancel*/
-      G50(),
-      /** Position register (programming of vector from part zero to tool tip) */
-      /** Local coordinate system (LCS) */
-      G52(),
-      /** Machine coordinate system */
-      G53(),
-      /** to G59 Work coordinate systems (WCSs) */
-      G54(),
-      /** .1 P1 to P48 Extended work coordinate systems */
-      G54_1(),
-      /** Exact stop check, modal */
-      G61(),
-      /** Automatic corner override */
-      G62(),
-      /** Default cutting mode (cancel exact stop check mode) */
-      G64(),
-      /** Rotate coordinate system */
-      G68(),
-      /** Turn off coordinate system rotation */
-      G69(),
-      /** Fixed cycle, multiple repetitive cycle, for finishing (including contours) */
-      G70(),
-      /** Fixed cycle, multiple repetitive cycle, for roughing (Z-axis emphasis) */
-      G71(),
-      /** Fixed cycle, multiple repetitive cycle, for roughing (X-axis emphasis) */
-      G72(),
-      /**
-       * T: Fixed cycle, multiple repetitive cycle, for roughing, with pattern repetition M: Peck
-       * drilling cycle for milling – high-speed (NO full retraction from pecks)
-       */
-      G73(),
-      /**
-       * M: Tapping cycle for milling, lefthand thread, M04 spindle direction T: Peck drilling cycle
-       * for turning
-       */
-      G74(),
-      /** Peck grooving cycle for turning */
-      G75(),
-      /**
-       * M: Fine boring cycle for milling T: Threading cycle for turning, multiple repetitive cycle
-       */
-      G76(),
-      /**
-       * Cancel canned cycle Turning: Usually not needed on lathes, because a new group-1 G address
-       * (G00 to G03) cancels whatever cycle was active.
-       */
-      G80(),
-      /** Simple drilling cycle */
-      G81(),
-      /** Drilling cycle with dwell */
-      G82(),
-      /** Peck drilling cycle (full retraction from pecks) */
-      G83(),
-      /** Tapping cycle, righthand thread, M03 spindle direction */
-      G84(),
-      /** .2 Tapping cycle, righthand thread, M03 spindle direction, rigid toolholder */
-      G84_2(),
+  public interface Cmd {
 
-      /** .3 Tapping cycle, lefthand thread, M04 spindle direction, rigid toolholder */
-      G84_3(),
+    String name();
 
-      /**
-       * boring cycle, feed in/feed out Good cycle for a reamer.In some cases good for single-point
-       * boring tool, although in other cases the lack of depth of cut on the way back out is bad
-       * for surface finish, in which case, G76 (OSS/shift) can be used instead. If need dwell at
-       * hole bottom, see G89.
-       */
-      G85(),
+    List<Variable> getVars();
 
-      /** boring cycle, feed in/spindle stop/rapid out */
-      G86(),
+    void addVar(Variable var);
 
-      /** boring cycle, backboring */
-      G87(),
-
-      /** boring cycle, feed in/spindle stop/manual operation */
-      G88(),
-
-      /** boring cycle, feed in/dwell/feed out */
-      G89(),
-
-      /**
-       * Absolute programming Milling: Always as above.Turning: Sometimes as above (Fanuc group type
-       * B and similarly designed), but on most lathes (Fanuc group type A and similarly designed),
-       * G90/G91 are not used for absolute/incremental modes. Instead, U and W are the incremental
-       * addresses and X and Z are the absolute addresses. On these lathes, G90 is instead a fixed
-       * cycle address for roughing.<br>
-       * T: Fixed cycle, simple cycle, for roughing (Z-axis emphasis)
-       */
-      G90(),
-
-      /**
-       * Incremental programming Milling: Always as above. Turning: Sometimes as above (Fanuc group
-       * type B and similarly designed), but on most lathes (Fanuc group type A and similarly
-       * designed), G90/G91 are not used for absolute/incremental modes. Instead, U and W are the
-       * incremental addresses and X and Z are the absolute addresses. On these lathes, G90 is a
-       * fixed cycle address for roughing.
-       */
-      G91(),
-
-      /**
-       * Position register (programming of vector from part zero to tool tip) Milling: Always as
-       * above.Turning: Sometimes as above (Fanuc group type B and similarly designed), but on most
-       * lathes (Fanuc group type A and similarly designed), position register is G50.T: Threading
-       * cycle, simple cycle
-       */
-      G92(),
-
-      /** Feedrate per minute T: Fixed cycle, simple cycle, for roughing (X-axis emphasis) */
-      G94(),
-
-      /** Feedrate per revolution */
-      G95(),
-
-      /** Constant surface speed (CSS) */
-      G96(),
-
-      /** Constant spindle speed */
-      G97(),
-
-      /** Return to initial Z level in canned cycle T: Feedrate per minute (group type A) */
-      G98(),
-
-      /** Return to R level in canned cycle T: Feedrate per revolution (group type A) */
-      G99(),
-
-      /** Tool length measurement */
-      G100();
-   }
-   public static enum M {
-      /** Compulsory stop */
-      M00(),
-      /** Optional stop */
-      M01(),
-      /** End of program */
-      M02(),
-      /**
-       * Spindle on (clockwise rotation) Right-hand-helix screws moving in the tightening direction
-       * (and right-hand-helix flutes spinning in the cutting direction) are defined as moving in
-       * the M03 direction, and are labeled "clockwise" by convention. The M03 direction is always
-       * M03 regardless of local vantage point and local CW/CCW distinction.
-       */
-      M03(),
-      /** Spindle on (counterclockwise rotation) */
-      M04(),
-      /** Spindle stop */
-      M05(),
-      /**
-       * Automatic tool change (ATC) Programming on any particular machine tool requires knowing
-       * which method that machine uses. To understand how the T address works and how it interacts
-       * (or not) with M06, one must study the various methods, such as lathe turret programming,
-       * ATC fixed tool selection, ATC random memory tool selection, the concept of "next tool
-       * waiting", and empty tools.[4]
-       */
-      M06(),
-      /** Coolant on (mist) */
-      M07(),
-      /** Coolant on (flood) */
-      M08(),
-      /** Coolant off */
-      M09(),
-      /** Pallet clamp on */
-      M10(),
-      /** Pallet clamp off */
-      M11(),
-      /** Spindle on (clockwise rotation) and coolant on (flood) */
-      M13(),
-      /**
-       * Spindle orientation. The relevance of spindle orientation has increased as technology has
-       * advanced. Although 4- and 5-axis contour milling and CNC single-pointing have depended on
-       * spindle position encoders for decades, before the advent of widespread live tooling and
-       * mill-turn/turn-mill systems, it was not as often relevant in "regular" (non-"special")
-       * machining for the operator (as opposed to the machine) to know the angular orientation of a
-       * spindle as it is today, except in certain contexts (such as tool change, or G76 fine boring
-       * cycles with choreographed tool retraction). Most milling of features indexed around a
-       * turned workpiece was accomplished with separate operations on indexing head setups; in a
-       * sense, indexing heads were originally invented as separate pieces of equipment, to be used
-       * in separate operations, which could provide precise spindle orientation in a world where it
-       * otherwise mostly didn't exist (and didn't need to). But as CAD/CAM and multiaxis CNC
-       * machining with multiple rotary-cutter axes becomes the norm, even for "regular"
-       * (non-"special") applications, machinists now frequently care about stepping just about any
-       * spindle through its 360° with precision.
-       */
-      M19(),
-      /** Mirror, X-axis T: Tailstock forward */
-      M21(),
-      /** Mirror, Y-axis. T:Tailstock backward */
-      M22(),
-      /** Mirror OFF T: Thread gradual pullout ON */
-      M23(),
-      /** Thread gradual pullout OFF */
-      M24(),
-      /** End of program, with return to program top */
-      M30(),
-      /** Gear select – gear 1 */
-      M41(),
-      /** Gear select – gear 2 */
-      M42(),
-      /** Gear select – gear 3 */
-      M43(),
-      /** Gear select – gear 4 */
-      M44(),
-      /** Feedrate override allowed */
-      M48(),
-      /** Feedrate override NOT allowed */
-      M49(),
-      /** Unload Last tool from spindle */
-      M52(),
-      /** Automatic pallet change (APC) */
-      M60(),
-      /** Subprogram call */
-      M98(),
-      /** Subprogram end */
-      M99(),
-      /** SXXX: Set temperature and wait for it to be reached */
-      M104()
-      ;
-   }
-   public static enum T {
-
-   }
-
-   /**
-   * 
-   */
-   public static class Coord {
-      /**
-       * 
-       * @param tar target pos
-       * @param pos current pos
-       * @return The coords constructed from the deltas of target and source
-       */
-      public static Coord diffCoord(Coord tar, Coord pos) {
-         return new Coord().X(tar.x - pos.x).Y(tar.y - pos.y).Z(tar.z - pos.z).E(tar.e - pos.e)
-               .C1(tar.c1 - pos.c1).C2(tar.c2 - pos.c2).C3(tar.c3 - pos.c3);
-      }
-
-      public static Coord origin() {
-         return new Coord().X(0).Y(0).Z(0).E(0).C1(0).C2(0).C3(0);
-      }
-
-      private volatile float x, y, z, e, c1, c2, c3;
-
-      public float C1() {
-         return c1;
-      }
-
-      public Coord C1(float c1) {
-         this.c1 = c1;
-         return this;
-      }
-
-      public float C2() {
-         return c2;
-      }
-
-      public Coord C2(float c2) {
-         this.c2 = c2;
-         return this;
-      }
-
-      public float C3() {
-         return c3;
-      }
-
-      public Coord C3(float c3) {
-         this.c3 = c3;
-         return this;
-      }
-
-      public float E() {
-         return e;
-      }
-
-      public Coord E(float e) {
-         this.e = e;
-         return this;
+    public static final Cmd nil = new Cmd() {
+      @Override
+      public String name() {
+        return "null";
       }
 
       @Override
-      public boolean equals(Object obj) {
-         if (this == obj)
-            return true;
-         if (obj == null)
-            return false;
-         if (getClass() != obj.getClass())
-            return false;
-         Coord other = (Coord) obj;
-         if (Float.floatToIntBits(c1) != Float.floatToIntBits(other.c1))
-            return false;
-         if (Float.floatToIntBits(c2) != Float.floatToIntBits(other.c2))
-            return false;
-         if (Float.floatToIntBits(c3) != Float.floatToIntBits(other.c3))
-            return false;
-         if (Float.floatToIntBits(e) != Float.floatToIntBits(other.e))
-            return false;
-         if (Float.floatToIntBits(x) != Float.floatToIntBits(other.x))
-            return false;
-         if (Float.floatToIntBits(y) != Float.floatToIntBits(other.y))
-            return false;
-         if (Float.floatToIntBits(z) != Float.floatToIntBits(other.z))
-            return false;
-         return true;
-      }
-
-      public float getAxis(Axis axis) {
-         switch (axis) {
-            case C1:
-               return c1;
-            case C2:
-               return c2;
-            case C3:
-               return c3;
-            case E:
-               return e;
-            case X:
-               return x;
-            case Y:
-               return y;
-            case Z:
-               return z;
-            case ALL:
-            default:
-               return 0f;
-         }
+      public List<Variable> getVars() {
+        return null;
       }
 
       @Override
-      public int hashCode() {
-         final int prime = 31;
-         int result = 1;
-         result = prime * result + Float.floatToIntBits(c1);
-         result = prime * result + Float.floatToIntBits(c2);
-         result = prime * result + Float.floatToIntBits(c3);
-         result = prime * result + Float.floatToIntBits(e);
-         result = prime * result + Float.floatToIntBits(x);
-         result = prime * result + Float.floatToIntBits(y);
-         result = prime * result + Float.floatToIntBits(z);
-         return result;
+      public void addVar(Variable var) {}
+    };
+
+    public enum G {
+      G0(), // Move
+      G1(), // Move
+      G2(), // Controlled Arc Move
+      G3(), // Controlled Arc Move
+      G4(), // Dwell
+      G6(), // Direct Stepper Move
+      G10(), // Tool Offset Retract
+      G11(), // Unretract
+      G12(), // Clean Tool
+      G17(), // Plane Selection (CNC specific)
+      G18(), // :Plane Selection (CNC specific)
+      G19(), // Plane Selection (CNC specific)
+      G20(), // Set Units to Inches
+      G21(), // Set Units to Millimeters
+      G22(), // Firmware controlled Retract/Precharge
+      G23(), // Firmware controlled Retract/Precharge
+      G26(), // Mesh Validation Pattern
+      G28(), // Move to Origin (Home)
+      G29(), // Detailed Z-Probe, Auto Bed Leveling (Marlin) Unified Bed Leveling (Marlin) Manual
+             // Bed
+             // Leveling (Marlin) Auto Bed Leveling (Repetier-Firmware) Auto Bed
+             // Compensation(RepRapFirmware)
+      G29_1(), // Set Z probe head offset
+      G29_2(), // Set Z probe head offset calculated from toolhead position
+      G30(), // Single Z-Probe
+      G31(), // Set or Report Current Probe status Dock Z Probe sled
+      G32(), // Probe Z and calculate Z plane Probe and calculate in Reprapfirmware Probe and
+             // calculate
+             // in Repetier firmware Undock Z Probe sled
+      G33(), // Firmware dependent Measure/List/Adjust Distortion Matrix (Repetier - Redeem) Delta
+             // Auto
+             // Calibration (Marlin 1.1.x or MK4duo)
+      G38_x(), // Straight Probe (CNC specific)
+      G38_2(), // probe toward workpiece, stop on contact, signal error if failure
+      G38_3(), // probe toward workpiece, stop on contact
+      G38_4(), // probe away from workpiece, stop on loss of contact, signal error if failure
+      G38_5(), // probe away from workpiece, stop on loss of contact
+      G40(), // Compensation Off (CNC specific)
+      G42(), // Move to Grid Point
+      G53_59(), // Coordinate System Select (CNC specific)
+      G60(), // save current position to slot
+      G61(), // Apply/restore saved coordinates to the active extruder.
+      G80(), // Cancel Canned Cycle (CNC specific)
+      G90(), // Set to Absolute Positioning
+      G91(), // Set to Relative Positioning
+      G92(), // Set Position
+      G92_x(), // Reset Coordinate System Offsets (CNC specific)
+      G93(), // Feed Rate Mode (Inverse Time Mode) (CNC specific)
+      G94(), // Feed Rate Mode (Units per Minute) (CNC specific)
+      G100(), // Calibrate floor or rod radius
+      G130(), // Set digital potentiometer value
+      G131(), // Remove offset
+      G132(), // Calibrate endstop offsets
+      G133(), // Measure steps to top
+      G161(), // Home axes to minimum
+      G162();
+
+      public static Cmd find(String s) {
+        return new Cmd() {
+          private final List<Variable> vars = new java.util.ArrayList<>();
+          private final String         name = G.valueOf(s).name();
+
+          @Override
+          public String name() {
+            return name;
+          }
+
+          @Override
+          public List<Variable> getVars() {
+            return vars;
+          }
+
+          @Override
+          public void addVar(Variable var) {
+            this.vars.add(var);
+          }
+
+          @Override
+          public String toString() {
+            return "cmd: {name: " + this.name() + " , vars: [" + Arrays.toString(vars.toArray())
+                + "]}";
+          }
+        };
+      }
+    }
+    public enum M {
+      M0(), // Stop or Unconditional stop
+      M1(), // Sleep or Conditional stop
+      M2(), // Program End
+      M3(), // Spindle On, Clockwise (CNC specific)
+      M4(), // Spindle On, Counter-Clockwise (CNC specific)
+      M5(), // Spindle Off (CNC specific)
+      M6(), // Tool change
+      M7(), // Mist Coolant On (CNC specific)
+      M8(), // Flood Coolant On (CNC specific)
+      M9(), // Coolant Off (CNC specific)
+      M10(), // Vacuum On (CNC specific)
+      M11(), // Vacuum Off (CNC specific)
+      M17(), // Enable/Power all stepper motors
+      M18(), // Disable all stepper motors
+      M20(), // List SD card
+      M21(), // Initialize SD card
+      M22(), // Release SD card
+      M23(), // Select SD file
+      M24(), // Start/resume SD print
+      M25(), // Pause SD print
+      M26(), // Set SD position
+      M27(), // Report SD print status
+      M28(), // Begin write to SD card
+      M29(), // Stop writing to SD card
+      M30(), // Delete a file on the SD card
+      M31(), // Output time since last M109 or SD card start to serial
+      M32(), // Select file and start SD print
+      M33(), // Get the long name for an SD card file or folder Stop and Close File and save
+             // restart.gcode
+      M34(), // Set SD file sorting options
+      M35(), // Upload firmware NEXTION from SD
+      M36(), // Return file information
+      M37(), // Simulation mode
+      M38(), // Compute SHA1 hash of target file
+      M39(), // Report SD card information
+      M40(), // Eject
+      M41(), // Loop
+      M42(), // Switch I/O pin
+      M43(), // Stand by on material exhausted Pin report and debug
+      M48(), // Measure Z-Probe repeatability
+      M70(), // Display message
+      M72(), // Play a tone or song
+      M73(), // Set build percentage
+      M80(), // ATX Power On
+      M81(), // ATX Power Off
+      M82(), // Set extruder to absolute mode
+      M83(), // Set extruder to relative mode
+      M84(), // Stop idle hold
+      M85(), // Set inactivity shutdown timer
+      M92(), // Set axis_steps_per_unit
+      M93(), // Send axis_steps_per_unit
+      M98(), // Call Macro/Subprogram Get axis_hysteresis_mm
+      M99(), // Return from Macro/Subprogram M99(), // Set axis_hysteresis_mm
+      M101(), // Turn extruder 1 on (Forward), Undo Retraction
+      M102(), // Turn extruder 1 on (Reverse)
+      M103(), // Turn all extruders off, Extruder Retraction
+      M104(), // Set Extruder Temperature
+      M105(), // Get Extruder Temperature
+      M106(), // Fan On
+      M107(), // Fan Off
+      M108(), // Cancel Heating (Marlin) Set Extruder Speed (BFB)
+      M109(), // Set Extruder Temperature and Wait
+      M110(), // Set Current Line Number
+      M111(), // Set Debug Level
+      M112(), // Emergency Stop
+      M113(), // Set Extruder PWM
+      M114(), // Get Current Position
+      M115(), // Get Firmware Version and Capabilities
+      M116(), // Wait
+      M117(), // Get Zero Position Display Message
+      M118(), // Echo message on host Negotiate Features
+      M119(), // Get Endstop Status
+      M120(), // Push Enable endstop detection
+      M121(), // Disable endstop detection Pop
+      M122(), // Firmware dependent Diagnose (RepRapFirmware) Set Software Endstop (MK4duo)
+      M123(), // Tachometer value
+      M124(), // Immediate motor stop
+      M126(), // Open Valve
+      M127(), // Close Valve
+      M128(), // Extruder Pressure PWM
+      M129(), // Extruder pressure off
+      M130(), // Set PID P value
+      M131(), // Set PID I value
+      M132(), // Set PID D value
+      M133(), // Set PID I limit value
+      M134(), // Write PID values to EEPROM
+      M135(), // Set PID sample interval
+      M136(), // Print PID settings to host
+      M140(), // Set Bed Temperature (Fast)
+      M141(), // Set Chamber Temperature (Fast)
+      M142(), // Holding Pressure
+      M143(), // Maximum heater temperature
+      M144(), // Bed Standby
+      M146(), // Set Chamber Humidity
+      M149(), // Set temperature units
+      M150(), // Set display color
+      M155(), // Automatically send temperatures
+      M160(), // Number of mixed materials
+      M163(), // Set weight of mixed material
+      M164(), // Store weights
+      M165(), // Set multiple mix weights
+      M190(), // Wait for bed temperature to reach target temp
+      M191(), // Wait for chamber temperature to reach target temp
+      M200(), // Set filament diameter
+      M201(), // Set max printing acceleration
+      M202(), // Set max travel acceleration
+      M203(), // Set maximum feedrate Repetier
+      M204(), // Set default acceleration Repetier
+      M205(), // Advanced settings Repetier
+      M206(), // Offset axes Repetier(),
+      M207(), // Calibrate z axis by detecting z max length Set eeprom value Set retract length
+      M208(), // Set axis max travel Set unretract length
+      M209(), // Enable automatic retract
+      M210(), // Set homing feedrates
+      M211(), // Disable/Enable software endstops
+      M212(), // Set Bed Level Sensor Offset
+      M218(), // Set Hotend Offset
+      M220(), // Set speed factor override percentage Turn off AUX V
+      M221(), // Set extrude factor override percentage Turn on AUX V
+      M222(), // Set speed of fast XY moves
+      M223(), // Set speed of fast Z moves
+      M224(), // Enable extruder during fast moves
+      M225(), // Disable on extruder during fast moves
+      M226(), // Gcode Initiated Pause Wait for pin state
+      M227(), // Enable Automatic Reverse and Prime
+      M228(), // Disable Automatic Reverse and Prime
+      M229(), // Enable Automatic Reverse and Prime
+      M230(), // Disable / Enable Wait for Temperature Change
+      M231(), // Set OPS parameter
+      M232(), // Read and reset max. advance values
+      M240(), // Trigger camera Start conveyor belt motor / Echo off
+      M241(), // Stop conveyor belt motor / echo on
+      M245(), // Start cooler
+      M246(), // Stop cooler
+      M250(), // Set LCD contrast
+      M251(), // Measure Z steps from homing stop (Delta printers)
+      M260(), // i2c Send Data
+      M261(), // i2c Request Data
+      M280(), // Set servo position
+      M290(), // Babystepping
+      M291(), // Display message and optionally wait for response
+      M292(), // Acknowledge message
+      M300(), // Play beep sound
+      M301(), // Set PID parameters Marlin RepRapFirmwareonwards RepRapFirmwaretoinclusive
+              // Smoothie
+              // Other implementations Teacup
+      M302(), // Allow cold extrudes
+      M303(), // Run PID tuning
+      M304(), // Set PID parameters - Bed M304 in RepRapPro version of Marlin(),
+      M305(), // Set thermistor and ADC parameters //Set thermistor values
+      M306(), // Set home offset calculated from toolhead position
+      M307(), // Set or report heating process parameters
+      M320(), // Activate autolevel (Repetier)
+      M321(), // Deactivate autolevel (Repetier)
+      M322(), // Reset autolevel matrix (Repetier)
+      M323(), // Distortion correction on/off (Repetier)
+      M340(), // Control the servos
+      M350(), // Set microstepping mode
+      M351(), // Toggle MS1 MS2 pins directly
+      M355(), // Turn case lights on/off
+      M360(), // Report firmware configuration SCARA calibration codes (Morgan) M360(),//Move to
+              // Theta 0 degree position
+      M361(), // Move to Theta 90 degree position
+      M362(), // Move to Psi 0 degree position
+      M363(), // Move to Psi 90 degree position
+      M364(), // Move to Psi + Theta 90 degree position
+      M365(), // SCARA scaling factor
+      M366(), // SCARA convert trim
+      M370(), // Morgan manual bed level - clear map
+      M371(), // Move to next calibration position
+      M372(), // Record calibration value, and move to next position
+      M373(), // End bed level calibration mode
+      M374(), // Save calibration grid
+      M375(), // Display matrix / Load Matrix
+      M376(), // Set bed compensation taper
+      M380(), // Activate solenoid
+      M381(), // Disable all solenoids
+      M400(), // Wait for current moves to finish
+      M401(), // Lower z-probe
+      M402(), // Raise z-probe
+      M404(), // Filament width and nozzle diameter
+      M405(), // Filament Sensor on
+      M406(), // Filament Sensor off
+      M407(), // Display filament diameter
+      M408(), // Report JSON-style response
+      M420(), // Set RGB Colors as PWM (MachineKit) Leveling On/Off/Fade (Marlin)
+      M421(), // Set a Mesh Bed Leveling Z coordinate
+      M450(), // Report Printer Mode
+      M451(), // Select FFF Printer Mode
+      M452(), // Select Laser Printer Mode
+      M453(), // Select CNC Printer Mode
+      M460(), // Define temperature range for thermistor-controlled fan
+      M500(), // Store parameters in non-volatile storage
+      M501(), // Read parameters from EEPROM
+      M502(), // Revert to the default "factory settings."
+      M503(), // Print settings
+      M504(), // Validate EEPROM
+      M530(), // Enable printing mode
+      M531(), // Set print name
+      M532(), // Set print progress
+      M540(), // Enable/Disable "Stop SD Print on Endstop Hit" Set MAC address
+      M550(), // Set Name
+      M551(), // Set Password
+      M552(), // Set IP address, enable/disable network interface
+      M553(), // Set Netmask
+      M554(), // Set Gateway
+      M555(), // Set compatibility
+      M556(), // Axis compensation
+      M557(), // Set Z probe point or define probing grid
+      M558(), // Set Z probe type
+      M559(), // Upload configuration file
+      M560(), // Upload web page file
+      M561(), // Set Identity Transform
+      M562(), // Reset temperature fault
+      M563(), // Define or remove a tool
+      M564(), // Limit axes
+      M565(), // Set Z probe offset
+      M566(), // Set allowable instantaneous speed change
+      M567(), // Set tool mix ratios
+      M568(), // Turn off/on tool mix ratios
+      M569(), // Stepper driver control
+      M570(), // Configure heater fault detection
+      M571(), // Set output on extrude
+      M572(), // Set or report extruder pressure advance
+      M573(), // Report heater PWM
+      M574(), // Set endstop configuration
+      M575(), // Set serial comms parameters
+      M577(), // Wait until endstop is triggered
+      M578(), // Fire inkjet bits
+      M579(), // Scale Cartesian axes
+      M580(), // Select Roland
+      M581(), // Configure external trigger
+      M582(), // Check external trigger
+      M583(), // Wait for pin
+      M584(), // Set drive mapping
+      M585(), // Probe Tool
+      M586(), // Configure network protocols
+      M587(), // Store WiFi host network in list, or list stored networks
+      M588(), // Forget WiFi host network
+      M589(), // Configure access point parameters
+      M590(), // Report current tool type and index
+      M591(), // Configure filament sensing
+      M592(), // Configure nonlinear extrusion
+      M600(), // Set line cross section Filament change pause
+      M605(), // Set dual x-carriage movement mode
+      M665(), // Set delta configuration
+      M666(), // Set delta endstop adjustment
+      M667(), // Select CoreXY mode
+      M668(), // Set Z-offset compensations polynomial
+      M669(), // Set kinematics type and kinematics parameters
+      M670(), // Set IO port bit mapping
+      M671(), // Define positions of Z leadscrews or bed leveling screws
+      M672(), // Program Z probe
+      M700(), // Level plate
+      M701(), // Load filament
+      M702(), // Unload filament
+      M703(), // Get Board Type
+      M710(), // Erase the EEPROM and reset the board
+      M750(), // Enable 3D scanner extension
+      M751(), // Register 3D scanner extension over USB
+      M752(), // Start 3D scan
+      M753(), // Cancel current 3D scanner action
+      M754(), // Calibrate 3D scanner
+      M755(), // Set alignment mode for 3D scanner
+      M756(), // Shutdown 3D scanner
+      M800(), // Fire start print procedure
+      M801(), // Fire end print procedure
+      M851(), // Set Z-Probe Offset M851 in Marlin M851 in Marlin M851 in MK4duo M900 Set Linear
+              // Advance Scaling Factors
+      M905(), // Set local date and time
+      M906(), // Set motor currents
+      M907(), // Set digital trimpot motor
+      M908(), // Control digital trimpot directly
+      M909(), // Set microstepping
+      M910(), // Set decay mode
+      M911(), // Configure auto save on loss of power
+      M912(), // Set electronics temperature monitor adjustment
+      M913(), // Set motor percentage of normal current
+      M914(), // Set/Get Expansion Voltage Level Translator
+      M915(), // Configure motor stall detection
+      M916(), // Resume print after power failure
+      M917(), // Set motor standstill current reduction
+      M918(), // Configure direct-connect display
+      M928(), // Start SD logging
+      M929(), // Start/stop event logging to SD card
+      M997(), // Perform in-application firmware update
+      M998(), // Request resend of line
+      M999();// Restart after being stopped by error
+
+      public static Cmd find(String s) {
+        return new Cmd() {
+          private final List<Variable> vars = new java.util.ArrayList<>();
+          private final String         name = M.valueOf(s).name();
+
+          @Override
+          public String name() {
+            return name;
+          }
+
+          @Override
+          public List<Variable> getVars() {
+            return vars;
+          }
+
+          @Override
+          public void addVar(Variable var) {
+            this.vars.add(var);
+          }
+
+          @Override
+          public String toString() {
+            return "cmd: {name: " + this.name() + " , vars: [" + Arrays.toString(vars.toArray())
+                + "]}";
+          }
+        };
       }
 
-      public boolean inRange(Object obj, float toleranceXYZ, float toleranceE) {
-         if (this == obj)
-            return true;
-         if (obj == null)
-            return false;
-         if (getClass() != obj.getClass())
-            return false;
-         Coord other = (Coord) obj;
-         if (Math.abs(x - other.x) > toleranceXYZ)
-            return false;
-         if (Math.abs(y - other.y) > toleranceXYZ)
-            return false;
-         if (Math.abs(z - other.z) > toleranceXYZ)
-            return false;
-         if (Math.abs(e - other.z) > toleranceE)
-            return false;
-         return true;
-      }
+    }
 
-      /**
-       * 
-       * @param axis
-       * @param val
-       */
-      public Coord reduce(Axis axis, float val) {
-         val = abs(val);
-         int sign;
-         switch (axis) {
-            case ALL:
-               sign = x < 0 ? -1 : 1;
-               x = sign * (abs(x) - val);
-               sign = y < 0 ? -1 : 1;
-               y = sign * (abs(y) - val);
-               sign = z < 0 ? -1 : 1;
-               z = sign * (abs(z) - val);
-               sign = e < 0 ? -1 : 1;
-               e = sign * (abs(e) - val);
-               sign = c1 < 0 ? -1 : 1;
-               c1 = sign * (abs(c1) - val);
-               sign = c1 < 0 ? -1 : 1;
-               c2 = sign * (abs(c2) - val);
-               sign = c1 < 0 ? -1 : 1;
-               c3 = sign * (abs(c3) - val);
-               break;
-            case C1:
-               sign = c1 < 0 ? -1 : 1;
-               c1 = sign * (abs(c1) - val);
-               break;
-            case C2:
-               sign = c2 < 0 ? -1 : 1;
-               c2 = sign * (abs(c2) - val);
-               break;
-            case C3:
-               sign = c3 < 0 ? -1 : 1;
-               c3 = sign * (abs(c3) - val);
-               break;
-            case E:
-               sign = e < 0 ? -1 : 1;
-               e = sign * (abs(e) - val);
-               break;
-            case X:
-               sign = x < 0 ? -1 : 1;
-               x = sign * (abs(x) - val);
-               break;
-            case Y:
-               sign = y < 0 ? -1 : 1;
-               y = sign * (abs(y) - val);
-               break;
-            case Z:
-               sign = z < 0 ? -1 : 1;
-               z = sign * (abs(z) - val);
-               break;
-            default:
-               break;
-         }
-         return this;
-      }
-
-      public Coord setAxis(Axis axis, float val) {
-         switch (axis) {
-            case C1:
-               c1 = val;
-               break;
-            case C2:
-               c2 = val;
-               break;
-            case C3:
-               c3 = val;
-               break;
-            case E:
-               e = val;
-               break;
-            case X:
-               x = val;
-               break;
-            case Y:
-               y = val;
-               break;
-            case Z:
-               z = val;
-               break;
-            case ALL:
-            default:
-               break;
-         }
-         return this;
-      }
-
-      public float X() {
-         return x;
-      }
-
-      public Coord X(float x) {
-         this.x = x;
-         return this;
-      }
-
-      public float Y() {
-         return y;
-      }
-
-      public Coord Y(float y) {
-         this.y = y;
-         return this;
-      }
-
-      public float Z() {
-         return z;
-      }
-
-      public Coord Z(float z) {
-         this.z = z;
-         return this;
-      }
-   }
+  }
 
 }

@@ -9,7 +9,7 @@ import de.trho.replik84j.ctrl.A4988Motor.Address;
 import de.trho.replik84j.ctrl.A4988Motor.Microstepping;
 import de.trho.replik84j.ctrl.A4988Motor.Movement;
 import de.trho.replik84j.gcode.GCode.Axis;
-import de.trho.replik84j.gcode.GCode.Coord;
+import de.trho.replik84j.gcode.Coord;
 
 /**
  * 
