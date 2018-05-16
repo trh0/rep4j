@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import de.trho.replik84j.ctrl.A4988Motor.Address;
-import de.trho.replik84j.ctrl.A4988Motor.Microstepping;
-import de.trho.replik84j.ctrl.A4988Motor.Movement;
+import de.trho.replik84j.ctrl.StepperMotor.Address;
+import de.trho.replik84j.ctrl.StepperMotor.Microstepping;
+import de.trho.replik84j.ctrl.StepperMotor.Direction;
 import de.trho.replik84j.gcode.GCode.Axis;
 import de.trho.replik84j.gcode.Coord;
 
@@ -18,17 +18,17 @@ import de.trho.replik84j.gcode.Coord;
  */
 public class MotorShiftController extends ShiftRegister {
 
-  protected final org.apache.logging.log4j.Logger               logger   =
+  protected final org.apache.logging.log4j.Logger                 logger   =
       org.apache.logging.log4j.LogManager.getLogger(getClass());
 
-  private final java.util.Map<Axis, java.util.List<A4988Motor>> motors;
-  private Axis[]                                                ax       =
+  private final java.util.Map<Axis, java.util.List<StepperMotor>> motors;
+  private Axis[]                                                  ax       =
       {Axis.X, Axis.Y, Axis.Z, Axis.E};
-  private volatile int                                          state    = 0x0000;
-  private final Object                                          lock     = new Object();
-  private volatile Coord                                        pos;
-  private final Coord                                           origin;
-  private float                                                 accuracy = 0.01f;
+  private volatile int                                            state    = 0x0000;
+  private final Object                                            lock     = new Object();
+  private volatile Coord                                          pos;
+  private final Coord                                             origin;
+  private float                                                   accuracy = 0.01f;
 
   /**
    * 
@@ -58,14 +58,14 @@ public class MotorShiftController extends ShiftRegister {
    */
   public synchronized void enableSw(Axis axis, boolean enable) {
     int wr = 0x00;
-    final List<A4988Motor> tm;
+    final List<StepperMotor> tm;
     if (axis == Axis.ALL) {
       tm = new ArrayList<>();
       motors.values().forEach(c -> tm.addAll(c));
     } else {
       tm = motors.get(axis);
     }
-    for (A4988Motor m : tm) {
+    for (StepperMotor m : tm) {
       wr |= m.getAddress(Address.ENABLE);
     }
     synchronized (lock) {
@@ -83,14 +83,14 @@ public class MotorShiftController extends ShiftRegister {
    */
   public synchronized void sleepSw(Axis axis, boolean sleep) {
     int wr = 0x00;
-    final List<A4988Motor> tm;
+    final List<StepperMotor> tm;
     if (axis == Axis.ALL) {
       tm = new ArrayList<>();
       motors.values().forEach(c -> tm.addAll(c));
     } else {
       tm = motors.get(axis);
     }
-    for (A4988Motor m : tm) {
+    for (StepperMotor m : tm) {
       if (axis == Axis.ALL || axis == m.getAxis()) {
         wr |= m.getAddress(Address.SLEEP);
       }
@@ -110,14 +110,14 @@ public class MotorShiftController extends ShiftRegister {
    */
   public synchronized void setMicroStepping(Axis axis, Microstepping msc) {
     int wr = 0x00;
-    final List<A4988Motor> tm;
+    final List<StepperMotor> tm;
     if (axis == Axis.ALL) {
       tm = new ArrayList<>();
       motors.values().forEach(c -> tm.addAll(c));
     } else {
       tm = motors.get(axis);
     }
-    for (A4988Motor m : tm) {
+    for (StepperMotor m : tm) {
       if (axis == Axis.ALL || axis == m.getAxis()) {
         int ms1 = m.getAddress(Address.MS1), ms2 = m.getAddress(Address.MS2),
             ms3 = m.getAddress(Address.MS3);
@@ -167,14 +167,14 @@ public class MotorShiftController extends ShiftRegister {
    */
   public synchronized void reset(Axis axis) {
     int wr = 0x00;
-    final List<A4988Motor> tm;
+    final List<StepperMotor> tm;
     if (axis == Axis.ALL) {
       tm = new ArrayList<>();
       motors.values().forEach(c -> tm.addAll(c));
     } else {
       tm = motors.get(axis);
     }
-    for (A4988Motor m : tm) {
+    for (StepperMotor m : tm) {
       if (axis.equals(m.getAxis())) {
         wr |= m.getAddress(Address.RESET);
       }
@@ -202,28 +202,28 @@ public class MotorShiftController extends ShiftRegister {
   public void move(Coord tar, int speed) {
     final Coord d = Coord.diffCoord(pos, tar);
     float axisValue;
-    Movement moveDir;
-    int axisStepAdr;
-    List<A4988Motor> axisMotors;
+    Direction moveDir;
+    int tempMotorAdr;
+    List<StepperMotor> axisMotors;
     while (!pos.inRange(origin, 0.01f, 0.1f)) {
       for (Axis cax : this.ax) {
-        moveDir = d.getAxis(cax) < 0f ? Movement.REV : Movement.FWD;
+        moveDir = d.getAxis(cax) < 0f ? Direction.REV : Direction.FWD;
         axisValue = d.getAxis(cax);
-        axisStepAdr = 0x0;
+        tempMotorAdr = 0x0;
         if (axisValue != 0) {
           axisMotors = motors.get(cax);
           if (axisMotors.size() > 0) {
-            for (A4988Motor m : axisMotors) {
+            for (StepperMotor m : axisMotors) {
               int dir = m.getAddress(Address.DIR);
-              axisStepAdr |= m.getAddress(Address.STEP);
+              tempMotorAdr |= m.getAddress(Address.STEP);
               state |= dir;
-              if (moveDir == Movement.FWD) {
+              if (moveDir == Direction.FWD) {
                 state ^= dir;
               }
             }
-            state |= axisStepAdr;
+            state |= tempMotorAdr;
             write(state);
-            state ^= axisStepAdr;
+            state ^= tempMotorAdr;
             write(state);
             // DO # of steps according to speed
             d.reduce(cax, axisMotors.get(0).getUps());
@@ -252,8 +252,8 @@ public class MotorShiftController extends ShiftRegister {
    * 
    * @param m
    */
-  public void addMotor(A4988Motor m) {
-    final List<A4988Motor> li = motors.get(m.getAxis());
+  public void addMotor(StepperMotor m) {
+    final List<StepperMotor> li = motors.get(m.getAxis());
     if (!li.contains(m)) {
       li.add(m);
     }

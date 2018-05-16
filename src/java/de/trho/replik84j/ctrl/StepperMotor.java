@@ -4,6 +4,8 @@ import java.util.Arrays;
 import de.trho.replik84j.gcode.GCode.Axis;
 
 /**
+ * Written for motor driver A4899
+ * 
  * <pre>
  * <table> 
  * <tr> <th>MS1</th> <th>MS2</th>  <th>MS3</th> <th>MCS Reso</th>  <th>Excitation Mode</th> </tr>
@@ -18,11 +20,11 @@ import de.trho.replik84j.gcode.GCode.Axis;
  * @author trh0
  * @see #A4988Motor(Axis, int, float, int, int, int, int, int, int, int, int)
  */
-public class A4988Motor {
+public class StepperMotor {
   /**
    * 
    */
-  public static enum Movement {
+  public static enum Direction {
     FWD, REV, STP
   };
   /**
@@ -49,11 +51,12 @@ public class A4988Motor {
       this.mcs = mcs;
     }
   }
-  private final int[]       adresses;
-  private volatile Movement moveState = Movement.STP;
-  private Axis              axis;
-  private int               spr;
-  private float             ups;
+  private final int[]        adresses;
+  private volatile Direction moveState = Direction.STP;
+  private Axis               axis;
+  private int                spr;
+  private int                curStep;
+  private float              ups;
 
   /**
    * 
@@ -81,19 +84,32 @@ public class A4988Motor {
    * 
    *        <pre></pre>
    */
-  public A4988Motor(Axis axis, int spr, float ups, int stepAdr, int dirAdr, int ms1Adr, int ms2Adr,
-      int ms3Adr, int enableAdr, int sleepAdr, int resetAdr) {
+  public StepperMotor(Axis axis, int spr, float ups, int stepAdr, int dirAdr, int ms1Adr,
+      int ms2Adr, int ms3Adr, int enableAdr, int sleepAdr, int resetAdr) {
     this();
     this.spr = spr;
     this.ups = ups;
     this.axis = axis;
+    this.curStep = 0;
   }
 
   /**
    * @see #A4988Motor(Axis, int, float, int, int, int, int, int, int, int, int)
    */
-  public A4988Motor() {
+  public StepperMotor() {
     this.adresses = new int[Address.values().length];
+  }
+
+  public void move(Direction dir, int steps) {
+    if (Direction.FWD == dir) {
+      curStep += steps;
+    } else if (Direction.REV == dir) {
+      curStep -= steps;
+    }
+  }
+
+  public float getAngle() {
+    return 1f * curStep / spr;
   }
 
   /**
@@ -124,7 +140,7 @@ public class A4988Motor {
    * 
    * @return
    */
-  public Movement getMoveState() {
+  public Direction getMoveState() {
     return this.moveState;
   }
 
@@ -132,7 +148,7 @@ public class A4988Motor {
    * 
    * @param mv
    */
-  public void setMoveState(Movement mv) {
+  public void setMoveState(Direction mv) {
     this.moveState = mv;
   }
 
@@ -198,7 +214,7 @@ public class A4988Motor {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    A4988Motor other = (A4988Motor) obj;
+    StepperMotor other = (StepperMotor) obj;
     if (!Arrays.equals(adresses, other.adresses))
       return false;
     if (axis != other.axis)

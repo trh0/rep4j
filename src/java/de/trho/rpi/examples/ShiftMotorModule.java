@@ -1,6 +1,13 @@
 package de.trho.rpi.examples;
 
+import com.pi4j.wiringpi.Shift;
+import de.trho.replik84j.ctrl.MotorShiftController;
+import de.trho.replik84j.ctrl.StepperMotor;
+import de.trho.replik84j.ctrl.StepperMotor.Microstepping;
+import de.trho.replik84j.gcode.Coord;
+import de.trho.replik84j.gcode.GCode.Axis;
 import de.trho.rpi.core.AbstractAppModule;
+import de.trho.rpi.core.RPi3Pin;
 
 //@formatter:off
 /**
@@ -58,14 +65,36 @@ GPIO.cleanup()
  *
  */
 public class ShiftMotorModule extends AbstractAppModule {
+private MotorShiftController mc;
+
 //@formatter:on
   public ShiftMotorModule() {
     super(RunMode.LOOP);
+    mc = new MotorShiftController(16, 1, Shift.MSBFIRST, RPi3Pin.GPIO_17.address(),
+        RPi3Pin.GPIO_22.address(), RPi3Pin.GPIO_27.address(), 0);
+    mc.addMotor(
+        new StepperMotor(Axis.X, 200, 0.5f, 0x8000, 0x4000, 0x40, 0x20, 0x10, 0x80, 0x200, 0x100));
+    mc.addMotor(
+        new StepperMotor(Axis.Y, 200, 0.5f, 0x2000, 0x1000, 0x40, 0x20, 0x10, 0x80, 0x200, 0x100));
+    mc.addMotor(
+        new StepperMotor(Axis.Z, 200, 0.5f, 0x800, 0x400, 0x40, 0x20, 0x10, 0x80, 0x200, 0x100));
+    mc.setMicroStepping(Axis.X, Microstepping.FULL);
+    mc.setMicroStepping(Axis.Y, Microstepping.FULL);
+    mc.setMicroStepping(Axis.Z, Microstepping.FULL);
+    mc.reset();
   }
+  private int i = 1;
 
   @Override
   public void run() {
-
+    while (this.isRunning()) {
+      if (i % 2 == 0) {
+        mc.move(Coord.origin(), 1);
+      } else
+        mc.move(new Coord().X((float) (i + Math.random() * 30)).Y((float) (i + Math.random() * 30))
+            .Z((float) (i + Math.random() * 30)), 1);
+      i++;
+    }
   }
 
 }
