@@ -2,7 +2,10 @@
 /**/*.crt
 /**/*.key
 /**/c
-/**/config.properties
+/**/old.config.properties
+/**/replik8.config.properties
+git_old/*
+MoistureTempPressure-ssltrhode8883/*
 # Compiled class file
 *.class
 /**/git_old

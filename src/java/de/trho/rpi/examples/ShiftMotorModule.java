@@ -8,6 +8,7 @@ import de.trho.replik84j.gcode.Coord;
 import de.trho.replik84j.gcode.GCode.Axis;
 import de.trho.rpi.core.AbstractAppModule;
 import de.trho.rpi.core.RPi3Pin;
+import static com.pi4j.wiringpi.Gpio.*;
 
 //@formatter:off
 /**
@@ -64,36 +65,79 @@ GPIO.cleanup()
  * @see https://www.rototron.info/raspberry-pi-stepper-motor-tutorial/
  *
  */
-public class ShiftMotorModule extends AbstractAppModule {
-private MotorShiftController mc;
-
 //@formatter:on
+public class ShiftMotorModule extends AbstractAppModule {
+  private MotorShiftController mc;
+  private int                  step = RPi3Pin.GPIO_27.address(), dir = RPi3Pin.GPIO_17.address(),
+      ms1 = RPi3Pin.GPIO_18.address(), ms2 = RPi3Pin.GPIO_23.address(),
+      ms3 = RPi3Pin.GPIO_24.address();
+
   public ShiftMotorModule() {
     super(RunMode.LOOP);
-    mc = new MotorShiftController(16, 1, Shift.MSBFIRST, RPi3Pin.GPIO_17.address(),
-        RPi3Pin.GPIO_22.address(), RPi3Pin.GPIO_27.address(), 0);
-    mc.addMotor(
-        new StepperMotor(Axis.X, 200, 0.5f, 0x8000, 0x4000, 0x40, 0x20, 0x10, 0x80, 0x200, 0x100));
-    mc.addMotor(
-        new StepperMotor(Axis.Y, 200, 0.5f, 0x2000, 0x1000, 0x40, 0x20, 0x10, 0x80, 0x200, 0x100));
-    mc.addMotor(
-        new StepperMotor(Axis.Z, 200, 0.5f, 0x800, 0x400, 0x40, 0x20, 0x10, 0x80, 0x200, 0x100));
-    mc.setMicroStepping(Axis.X, Microstepping.FULL);
-    mc.setMicroStepping(Axis.Y, Microstepping.FULL);
-    mc.setMicroStepping(Axis.Z, Microstepping.FULL);
-    mc.reset();
+    // mc = new MotorShiftController(8, 10, Shift.LSBFIRST, RPi3Pin.GPIO_17.address(),
+    // RPi3Pin.GPIO_27.address(), RPi3Pin.GPIO_22.address(), 0);
+    // mc.addMotor(new StepperMotor(Axis.X, 200, 0.5f, 0x80, 0x40, 0x2, 0x4, 0x8, 0x01, 0x20,
+    // 0x10));
+    // mc.setMicroStepping(Axis.X, Microstepping.FULL);
+    // mc.reset();
+    logger.info("WiringPi setup {}", (wiringPiSetup() != 0) ? "not successfull" : "successfull");
+    pinMode(step, OUTPUT);
+    pinMode(dir, OUTPUT);
+    pinMode(ms1, OUTPUT);
+    pinMode(ms2, OUTPUT);
+    pinMode(ms3, OUTPUT);
+    digitalWrite(step, LOW);
+    digitalWrite(dir, LOW);
+    digitalWrite(ms1, LOW);
+    digitalWrite(ms2, LOW);
+    digitalWrite(ms3, LOW);
   }
-  private int i = 1;
+  private int del = 10, steps = 200;
 
   @Override
   public void run() {
+    this.setRunning(true);
     while (this.isRunning()) {
-      if (i % 2 == 0) {
-        mc.move(Coord.origin(), 1);
-      } else
-        mc.move(new Coord().X((float) (i + Math.random() * 30)).Y((float) (i + Math.random() * 30))
-            .Z((float) (i + Math.random() * 30)), 1);
-      i++;
+
+      mv(0, steps, del, Microstepping.FULL);
+      mv(1, steps, del, Microstepping.HALF);
+      mv(0, steps, del, Microstepping.QUARTER);
+      mv(1, steps, del, Microstepping.EIGHTH);
+      mv(0, steps, del / 2, Microstepping.SIXTEENTH);
+
+      delay(2500);
+      mv(1, steps, del, Microstepping.FULL);
+      mv(0, steps, del, Microstepping.FULL);
+      delay(1500);
+      mv(1, steps, del - 3, Microstepping.FULL);
+      mv(0, steps, del - 3, Microstepping.FULL);
+      delay(1500);
+      mv(1, steps, del - 4, Microstepping.FULL);
+      mv(0, steps, del - 4, Microstepping.FULL);
+      delay(1500);
+      mv(1, steps, del - 5, Microstepping.FULL);
+      mv(0, steps, del - 5, Microstepping.FULL);
+      delay(500);
+      // logger.info("Using MotorController to move now");
+      // if (i % 2 == 0) {
+      // mc.move(Coord.origin(), 1);
+      // } else
+      // mc.move(new Coord().X((float) (i + Math.random() * 30)).Y(0).Z(0), 1);
+      // i++;
+    }
+    this.setRunning(false);
+  }
+
+  private void mv(int dirv, int steps, int speed, Microstepping mcs) {
+    logger.info("Dir {}, Steps {}, speed {}, mcs {}", dirv, steps, speed, mcs);
+    digitalWrite(ms1, mcs.mcs1());
+    digitalWrite(ms2, mcs.mcs2());
+    digitalWrite(ms3, mcs.mcs3());
+    digitalWrite(this.dir, dirv);
+    for (int i = 0; i < steps; i++) {
+      digitalWrite(step, HIGH);
+      digitalWrite(step, LOW);
+      delay(speed);
     }
   }
 

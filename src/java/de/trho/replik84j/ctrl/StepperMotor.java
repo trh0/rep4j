@@ -47,6 +47,18 @@ public class StepperMotor {
     FULL(0, 0, 0), HALF(1, 0, 0), QUARTER(0, 1, 0), EIGHTH(1, 1, 0), SIXTEENTH(1, 1, 1);
     protected final int[] mcs;
 
+    public boolean mcs1() {
+      return this.mcs[0] == 1;
+    }
+
+    public boolean mcs2() {
+      return this.mcs[1] == 1;
+    }
+
+    public boolean mcs3() {
+      return this.mcs[2] == 1;
+    }
+
     private Microstepping(int... mcs) {
       this.mcs = mcs;
     }

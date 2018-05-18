@@ -223,6 +223,7 @@ public class MotorShiftController extends ShiftRegister {
             }
             state |= tempMotorAdr;
             write(state);
+            delay(super.getLatchDelay());
             state ^= tempMotorAdr;
             write(state);
             // DO # of steps according to speed
